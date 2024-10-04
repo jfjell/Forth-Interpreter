@@ -1,0 +1,265 @@
+: DECIMAL 10 BASE ! ;
+
+: SWAP 1 ROLL ;
+: DUP 0 PICK ;
+: ROT 2 ROLL ;
+: OVER 1 PICK ;
+: TUCK SWAP OVER ;
+: -ROT ROT ROT ;
+: NIP SWAP DROP ;
+: 2SWAP 3 ROLL 3 ROLL ;
+: 2DUP OVER OVER ;
+: 2DROP DROP DROP ;
+: 2ROT 5 PICK 5 PICK ;
+
+: NEGATE 0 SWAP - ;
+: + NEGATE - ;
+: / /MOD NIP ;
+: MOD /MOD DROP ;
+: 1+ 1 + ;
+: 1- 1 - ;
+: 2* 2 * ;
+: 2/ 2 / ;
+
+: TIB SOURCE DROP ;
+: #TIB SOURCE NIP ;
+
+: INVERT NEGATE 1- ;
+: OR INVERT SWAP INVERT AND INVERT ;
+: XOR DUP OVER INVERT AND -ROT INVERT AND OR ;
+
+: > SWAP < ;
+: <> 2DUP < -ROT > OR ;
+: = <> INVERT ;
+: 0< 0 < ;
+: 0> 0 > ;
+: 0<> 0 <> ;
+: 0= 0 = ;
+
+: BL 32 ;
+: FALSE 0 ;
+: TRUE -1 ;
+
+: HERE DP @ ;
+: CELLS CELL * ;
+: CELL+ CELL + ;
+: CHARS 1 * ;
+: CHAR+ 1+ ;
+: +! DUP @ ROT + SWAP ! ;
+: R@ R> R> DUP >R SWAP >R ;
+: ALLOT CELLS DP +! ;
+: , HERE ! CELL DP +! ;
+: C, HERE C! HERE CHAR+ DP ! ;
+: 2! SWAP OVER ! CELL+ ! ;
+: 2@ DUP CELL+ @ SWAP @ ;
+
+: IMMEDIATE? @ 1 14 LSHIFT AND 0<> ;
+: IMMEDIATE LP @ ::XT DUP @ 1 14 LSHIFT OR SWAP ! ;
+
+: ' BL WORD FIND ;
+: [ FALSE STATE ! ; IMMEDIATE
+: ] TRUE STATE ! ; IMMEDIATE
+
+: ['] [ ' ::LITERAL , ' ::LITERAL , ] , ' , ; IMMEDIATE
+
+: RECURSE LP @ ::XT , ; IMMEDIATE
+
+: \ #TIB >IN ! ; IMMEDIATE
+
+: SPACE BL EMIT ;
+: CR EOL EMIT ;
+
+: CHAR BL WORD CHAR+ C@ ;
+
+: COUNT DUP 1 CHARS + SWAP C@ ;
+: INCLUDE BL WORD COUNT INCLUDED ;
+
+: IF ['] ::LITERAL , HERE ::CS-PUSH 0 , ['] ::JMP-IF-ZERO , ; IMMEDIATE
+: ELSE 
+    ['] ::LITERAL , HERE 0 , ['] ::JMP ,
+    HERE ::CS-POP ! ::CS-PUSH 
+; IMMEDIATE
+: THEN HERE ::CS-POP ! ; IMMEDIATE
+
+: POSTPONE 
+    ['] ::LITERAL , ' DUP , 
+    IMMEDIATE? IF 
+        ['] EXECUTE , 
+    ELSE
+        ['] , , 
+    THEN
+; IMMEDIATE
+
+: LITERAL POSTPONE ::LITERAL , ; IMMEDIATE
+: [CHAR] POSTPONE ::LITERAL CHAR , ; IMMEDIATE
+
+: ?DUP DUP IF DUP THEN ;
+: ABS DUP 0< IF NEGATE THEN ;
+: MAX 2DUP < IF SWAP THEN DROP ;
+: MIN 2DUP > IF SWAP THEN DROP ;
+
+: S>D DUP 0< IF -1 ELSE 0 THEN ;
+: D>S DROP ;
+: M* S>D ROT S>D D* ;
+: UM* S>D ROT S>D UD* ;
+: */MOD -ROT M* ROT S>D D/MOD ;
+
+: SM/REM S>D D/MOD DROP -ROT DROP SWAP ;
+: FM/MOD SM/REM 2DUP 0= INVERT IF 0< IF SWAP 1- SWAP THEN 1- THEN ;
+
+: BEGIN HERE ::CS-PUSH ; IMMEDIATE
+: WHILE 
+    POSTPONE ::LITERAL HERE ::CS-PUSH 0 , POSTPONE ::JMP-IF-ZERO 
+; IMMEDIATE
+: REPEAT 
+    ::CS-POP POSTPONE ::LITERAL ::CS-POP , POSTPONE ::JMP HERE SWAP ! 
+; IMMEDIATE
+: UNTIL 
+    POSTPONE 0<> POSTPONE ::LITERAL ::CS-POP , POSTPONE ::JMP-IF-ZERO 
+; IMMEDIATE
+
+: DO
+    POSTPONE ::LITERAL HERE ::CS-PUSH 0 , 
+    POSTPONE >R
+    POSTPONE >R 
+    POSTPONE >R 
+    HERE ::CS-PUSH
+; IMMEDIATE
+: +LOOP 
+    POSTPONE R> POSTPONE R> POSTPONE ROT POSTPONE +
+    POSTPONE 2DUP POSTPONE >R POSTPONE >R
+    POSTPONE = POSTPONE ::LITERAL ::CS-POP , POSTPONE ::JMP-IF-ZERO 
+    HERE ::CS-POP ! 
+    POSTPONE R> POSTPONE DROP 
+    POSTPONE R> POSTPONE DROP 
+    POSTPONE R> POSTPONE DROP
+; IMMEDIATE
+: LOOP POSTPONE ::LITERAL 1 , POSTPONE +LOOP ; IMMEDIATE
+
+
+: I R> R> R> DUP >R -ROT >R >R ;
+: J R> R> R> R> R> R> DUP SWAP >R SWAP >R SWAP >R SWAP >R SWAP >R SWAP >R ;
+: UNLOOP R> 3 0 DO R> DROP LOOP >R ;
+: LEAVE POSTPONE R> POSTPONE R> POSTPONE 2DROP POSTPONE ::JMP ; IMMEDIATE
+: EXIT R> DROP 0 >R ;
+: >BODY ::XT 6 CELLS + ;
+: CREATE 
+    ::CREATE
+    POSTPONE ::LITERAL LP @ >BODY ,  
+    POSTPONE ::LITERAL 0 , 
+    POSTPONE ::JMP
+; 
+: DOES>
+    LP @ >BODY 2 CELLS - HERE SWAP ! R>
+    BEGIN
+        DUP DUP CELL+ @ 0<> SWAP @ 0<> OR WHILE
+        DUP @ ,
+        CELL+
+    REPEAT
+    0 , 0 ,
+    >R
+; 
+: VARIABLE CREATE 0 , ;
+: CONSTANT CREATE , DOES> @ ;
+
+: FILL 
+    -ROT DUP 0 > IF
+        0 DO
+            2DUP I CHARS + C!
+        LOOP 2DROP
+    ELSE
+        2DROP DROP
+    THEN
+;
+: MOVE 
+    DUP 0> IF
+        0 DO
+            OVER I + C@ OVER I + C!
+        LOOP 2DROP
+    THEN
+;
+: TYPE 
+    DUP 0> IF
+        0 DO
+            DUP I + C@ EMIT
+        LOOP DROP 
+    THEN 
+;
+
+: SPACES DUP 0> IF 0 DO SPACE LOOP THEN ;
+
+: (
+    BEGIN
+        1 >IN +!
+        TIB >IN @ + C@ [CHAR] ) = >IN @ #TIB > OR
+    UNTIL
+    1 >IN +!
+; IMMEDIATE
+
+
+: ::SLIT
+; IMMEDIATE
+
+: S"
+    0 BEGIN
+        1 >IN +! 
+
+        TIB >IN @ + C@ DUP [CHAR] " = INVERT >IN @ #TIB > OR WHILE
+        OVER -PAD + C!
+        1+
+    REPEAT DROP
+    1 >IN +!
+    -PAD SWAP
+
+    STATE @ TRUE = IF
+        DUP
+        POSTPONE ::LITERAL HERE 0 ,
+        POSTPONE ::LITERAL SWAP ,
+        POSTPONE ::LITERAL HERE 0 , 
+        POSTPONE ::JMP
+        OVER C,
+        HERE ROT !
+        SWAP 0 DO
+            OVER I + C@ C,
+        LOOP
+        ALIGN
+        HERE SWAP ! 
+        DROP
+    THEN
+; IMMEDIATE
+
+: ." POSTPONE S" POSTPONE TYPE ; IMMEDIATE
+
+: ABORT"
+    POSTPONE IF
+        POSTPONE S" 
+        POSTPONE TYPE 
+        POSTPONE ABORT
+    POSTPONE THEN
+; IMMEDIATE
+
+VARIABLE HLD 
+
+: VALUE>DIGIT
+    DUP BASE @ < INVERT IF 
+        DROP -1 
+    ELSE
+        DUP 10 < IF
+            [CHAR] 0 +
+        ELSE DUP 36 < IF
+            [CHAR] A + 10 -
+        THEN THEN
+    THEN
+;
+    
+: <# 0 HLD ! ;
+: HOLD PAD HLD @ - C! 1 HLD +! ;
+: SIGN 0< IF [CHAR] - HOLD THEN ;
+: # BASE @ S>D D/MOD 2SWAP D>S VALUE>DIGIT HOLD ;
+: #S BEGIN 2DUP 0= SWAP 0= AND INVERT WHILE # REPEAT ;
+: #> 2DROP PAD HLD @ 1- CHARS - HLD @ 0 HLD ! ;
+
+: . DUP ABS S>D <# # #S ROT SIGN #> TYPE SPACE ;
+: U. S>D <# # #S #> TYPE SPACE ;
+
+: EVALUATE SOURCE BL FILL SOURCE DROP SWAP MOVE 0 >IN ! POSTPONE [ ;
